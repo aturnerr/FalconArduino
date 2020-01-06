@@ -99,7 +99,7 @@ void engineStart () {
   execute_CMD(0x3F, 0, 0);
   delay(100);
   // set volume 
-  execute_CMD(0x06, 0, 28);
+  execute_CMD(0x06, 0, 18);
   delay(100);
   // specify initial track number
   execute_CMD(0x03, 0, 0001);
