@@ -16,19 +16,20 @@ DFRobotDFPlayerMini dfPlayer;
 #define End_Byte 0xEF
 #define Acknowledge 0x00 // returns info with command 0x41 [0x01: info, 0x00: no info]
 
+#define VOLUME 28
 #define NUM_LEDS 25
 #define DATA_PIN 6
 #define ACTIVATED LOW
 
-// button pins
+// button and LED pins
 int buttonNext = 3;
 int buttonPlay = 4;
+int blasterPin = 13;
 
 // misc constants
 int soundIndex = 0;
 int maxTrackNo = 2;
 boolean isPlaying = false;
-boolean firstBoot = true;
 
 CRGB leds[NUM_LEDS];
 
@@ -41,6 +42,7 @@ void setup () {
   digitalWrite(buttonNext,HIGH);
   pinMode(buttonPlay, INPUT);
   digitalWrite(buttonPlay,HIGH);
+  pinMode(blasterPin, OUTPUT);
 
   // initialise LEDs
   FastLED.addLeds<WS2812, DATA_PIN, RGB>(leds, NUM_LEDS);
@@ -49,57 +51,14 @@ void setup () {
   // set LEDs to OFF (black)
   fill_solid(leds,25,CRGB::Black);
   FastLED.show();
-}
 
-void loop () {
-  // play start up sequence on boot
-  if((!isPlaying && digitalRead(buttonPlay) == ACTIVATED) || firstBoot) {
-    engineStart();
-  }
-
-  // next track
-  if(!isPlaying && digitalRead(buttonNext) == ACTIVATED) {
-    // if we haven't reached the end of the track count
-    if (soundIndex < maxTrackNo) {
-      soundIndex ++;
-      isPlaying = true;
-      // play next track
-      execute_CMD(0x01, 0, 0);
-
-      // case specific behaviour for tracks
-      if (soundIndex == 1) {
-        // pause music player after duration has elapsed (end of track)
-        delay(42000);
-        execute_CMD(0x0E,0,0);
-        isPlaying = false;
-      } else if (soundIndex == 2) {
-        delay (18000); 
-        execute_CMD(0x0E,0,0);
-        isPlaying = false;
-      }
-    } else {
-      // play the start up sequence again if we have gone through all tracks
-      soundIndex = 0;
-      engineStart();
-    }
-  }
-
+  delay(500);
   
-}
-
-void engineStart () {
-  // turn off LEDs
-  fill_solid(leds,25,CRGB::Black);
-  FastLED.show();
-  
-  firstBoot = false;
-  isPlaying = true;
-
   // initialise DFPlayer
   execute_CMD(0x3F, 0, 0);
   delay(100);
   // set volume 
-  execute_CMD(0x06, 0, 18);
+  execute_CMD(0x06, 0, VOLUME);
   delay(100);
   // specify initial track number
   execute_CMD(0x03, 0, 0001);
@@ -110,6 +69,122 @@ void engineStart () {
 
   // begin track playback
   execute_CMD(0x0D,0,1);
+
+  delay(500);
+  
+  engineStart();
+}
+
+void loop () {
+  // play start up sequence on boot
+  if(!isPlaying && digitalRead(buttonPlay) == ACTIVATED) {
+    engineStart();
+  }
+
+  // next track
+  if(!isPlaying && digitalRead(buttonNext) == ACTIVATED) {
+    // if we haven't reached the end of the track count
+    if (soundIndex < maxTrackNo) {
+      soundIndex ++;
+      isPlaying = true;
+      
+      // play next track
+      execute_CMD(0x01, 0, 0);
+
+      // case specific behaviour for tracks
+      if (soundIndex == 1) {
+        esbTrack();
+      } else if (soundIndex == 2) {
+        tljTrack();
+      }
+    } else {
+      // play the start up sequence again if we have gone through all tracks
+      execute_CMD(0x01, 0, 0);
+      soundIndex = 0;
+      engineStart();
+    }
+  }
+}
+
+void blasterFire () {
+  digitalWrite(blasterPin, HIGH);
+  delay(50);
+  digitalWrite(blasterPin, LOW);
+  delay(50);
+  digitalWrite(blasterPin, HIGH);
+  delay(50);
+  digitalWrite(blasterPin, LOW);
+  return;
+}
+
+void esbTrack () {
+  int i,k;
+  delay(7500);
+  for(i=0;i<8;i++) {
+    for(k=255;k>150;k--){
+      fill_solid(leds,25,CHSV(150,120,k));
+      FastLED.show();
+    }
+    for(k=150;k<255;k++){
+      fill_solid(leds,25,CHSV(150,120,k));
+      FastLED.show();
+    }
+  }
+  delay(5500);
+  execute_CMD(0x0E,0,0);
+  isPlaying = false;
+  return;
+}
+
+void tljTrack () {
+  int i;
+  delay(7100);
+  
+  for(i=0;i<5;i++) {
+    delay(150);
+    blasterFire();
+  }
+  
+  delay(340);
+
+  for(i=0;i<2;i++) {
+    delay(150);
+    blasterFire();;
+  }
+  
+  delay(3650);
+  
+  blasterFire();
+  
+  delay(1050);
+  
+  for(i=0;i<2;i++) {
+    delay(300);
+    blasterFire();
+  }
+
+  delay(1700);
+  
+  blasterFire();
+
+  delay(200);
+  
+  for(i=0;i<2;i++) {
+    delay(150);
+    blasterFire();
+  }
+  
+  execute_CMD(0x0E,0,0);
+  isPlaying = false;
+  return;
+}
+
+void engineStart () {
+  // turn off LEDs
+  fill_solid(leds,25,CRGB::Black);
+  FastLED.show();
+  
+  isPlaying = true;
   
   int i,k;
   // LED behaviour timed to sync with track audio
@@ -179,6 +254,7 @@ void engineStart () {
   delay(13200);
   isPlaying = false;
   execute_CMD(0x0E,0,0);
+  return;
 }
 
 // build and send command
